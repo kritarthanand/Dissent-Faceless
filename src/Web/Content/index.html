@@ -1,0 +1,285 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns:fb="https://www.facebook.com/2008/fbml" xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+        <title>Dissent Chat Interface</title>
+        
+    </head>
+    <body>
+        <div id="fb-root"></div>
+
+<style type="text/css"> 
+body {
+  font:12px arial;
+  color: #222;
+  text-align:center;
+  padding:35px; }
+ 
+form, p, span {
+  margin:0;
+  padding:0; }
+ 
+input { font:12px arial; }
+ 
+a {
+  color:#0000FF;
+  text-decoration:none; }
+ 
+a:hover { text-decoration:underline; }
+ 
+#wrapper{
+  margin:0 auto;
+  padding-bottom:25px;
+  background:#EBF4FB;
+  width:504px;
+  border:1px solid #1D6C97; }
+ 
+#chatbox {
+  text-align:left;
+  margin:0 auto;
+  margin-bottom:25px;
+  padding:10px;
+  background:#fff;
+  height:270px;
+  width:430px;
+  border:1px solid #1D6C97;
+  overflow:auto; }
+ 
+#usermsg {
+  width:395px;
+  border:1px solid #1D6C97; }
+ 
+#submit { width: 60px; }
+ 
+.error { color: #ff0000; }
+ 
+#menu { padding:12.5px 25px 12.5px 25px; }
+ 
+.welcome { float:left; }
+ 
+.logout { float:right; }
+ 
+.msgln { margin:0 0 2px 0; }
+</style> 
+
+
+<script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
+
+        <script type="text/javascript">
+            var button;
+            var userInfo;
+            var k=0;
+            window.fbAsyncInit = function() {
+                FB.init({ appId: '415347991844368', //change the appId to your appId
+                    status: true, 
+                    cookie: true,
+                    xfbml: true,
+                    oauth: true});
+
+              // showLoader(true);
+               
+               function updateButton(response) {
+                    button       =   document.getElementById('fb-auth');
+                    userInfo     =   document.getElementById('user-info');
+                    
+                    if (response.authResponse) {
+                        //user is already logged in and connected
+                        FB.api('/me', function(info) {
+                            login(response, info);
+                        });
+                        
+                        button.onclick = function() {
+                            FB.logout(function(response) {
+                                logout(response);
+                            });
+                        };
+                    } else {
+                        //user is not connected to your app or logged out
+                        button.innerHTML = 'Login';
+                        button.onclick = function() {
+                            //showLoader(true);
+                            FB.login(function(response) {
+                                if (response.authResponse) {
+                                    FB.api('/me', function(info) {
+                                        login(response, info);
+                                    });	   
+                                } else {
+                                    //user cancelled login or did not grant authorization
+                                    //showLoader(false);
+                                }
+                            }, {scope:'email,user_birthday,status_update,publish_stream,user_about_me,user_groups'});  	
+                        }
+                    }
+                }
+                
+                // run once with current status and whenever the status changes
+                FB.getLoginStatus(updateButton);
+                FB.Event.subscribe('auth.statusChange', updateButton);	
+            };
+            (function() {
+                var e = document.createElement('script'); e.async = true;
+                e.src = document.location.protocol 
+                    + '//connect.facebook.net/en_US/all.js';
+                document.getElementById('fb-root').appendChild(e);
+            }());
+            
+            
+            function login(response, info){
+                if (response.authResponse) {
+        	        k=1;    
+			var accessToken                                 =   response.authResponse.accessToken;
+                    
+                    userInfo.innerHTML                             = '<img src="https://graph.facebook.com/' + info.id + '/picture">' + info.name
+                                                                     + "<br /> Your Access Token: " + accessToken;
+                    button.innerHTML                               = 'Logout';
+                  //  showLoader(false);
+                    document.getElementById('other').style.display = "block";
+                }
+            }
+        
+            function logout(response){
+		k=0;        
+	        userInfo.innerHTML                             =   "";
+                document.getElementById('debug').innerHTML     =   "";
+                document.getElementById('other').style.display =   "none";
+                //showLoader(false);
+            }
+        
+        
+            var offset = 0;
+var max_offset_delta = 100;
+var max_count = 10;
+
+$(document).ready(function() {
+  $("#submitmsg").click(submitMessage);
+  $("#exit").click(clickExit);
+  getMessages(0, getOffset);
+});
+  
+//Load the chat log from dissent server API /session/messages/all
+function getMessages(count, callback) {
+  callback = typeof callback !== 'undefined' ? callback : getMessagesCallback;
+  $.ajax({
+    url: "session/messages?offset=" + offset + "&count=" + count + "&wait=1",
+    cache: false,
+    async: true,
+    type: 'GET',
+    beforeSend: function(x) {
+      if(x && x.overrideMimeType) {
+        x.overrideMimeType("application/j-son;charset=UTF-8");
+      }
+    },
+    success: callback
+  });
+}
+
+function getOffset(data) {
+  
+var jsonObj = jQuery.parseJSON(data);
+  var total = jsonObj.output.total;
+  if(total > max_offset_delta) {
+    offset = total - max_offset_delta;
+  }
+  getMessages(max_count);
+}
+
+function getMessagesCallback(data) {
+  
+var chat_div = document.getElementById('chatbox');
+  try {
+    var jsonObj = jQuery.parseJSON(data);
+  } catch(err) {
+    offset += 1;
+    getMessages(1);
+    return;
+  }
+
+  for(i=0;i<jsonObj.output.messages.length;i++){
+	
+    chat_div.innerHTML += 'message: ' + jsonObj.output.messages[i] + '<br/>';
+	alert("Posting message to Facebook");
+	graphStreamPublish(jsonObj.output.messages[i]);  
+
+}
+  $("#chatbox").scrollTop($("#chatbox")[0].scrollHeight);
+
+  var length = jsonObj.output.messages.length;
+  offset += length;
+  var total = jsonObj.output.total;
+
+  if(offset == total) {
+    getMessages(1);
+  } else{
+    getMessages(max_count);
+  }
+}
+
+//Submits msg into dissent server API /session/send
+function submitMessage() {
+  
+var clientmsg = $("#usermsg").val();
+  $.post("session/send", clientmsg);
+  $("#usermsg").attr("value", "");
+  return false;
+}
+
+//If user wants to end dissent chat
+function clickExit() {
+  var exit = confirm("Are you sure you want to end Dissent chat?");
+  if(exit==true){
+    window.opener=null;      
+    window.open('','_self');      
+    window.close();      
+  }
+}
+            
+function graphStreamPublish(msg){
+             
+                FB.api('/364302450308841/feed', 'post', 
+                    { 
+                        message     : msg
+                        
+                    }, 
+                function(response) {
+                    
+                    if (!response || response.error) {
+                        alert('Please login into Facebook and refresh');
+                    } else {
+                        alert("Sucessfully Posted");
+                    }
+                });
+            
+}
+      
+
+                  
+        </script>
+
+        <button id="fb-auth">Login</button>
+        <br />
+        <div id="user-info"></div>
+        <br />
+		
+        <div id="debug"></div>
+        
+        <div id="other" style="display:none">
+           
+        </div>
+	
+	<div id="wrapper">
+  <div id="menu">
+    <p class="welcome">Dissent Web Client<b></b></p>
+    <p class="logout"><a id="exit" href="#">Exit Chat</a></p>
+    <div style="clear:both"></div>
+</div>
+
+<div id="chatbox" title="Dissent Chat"></div>
+
+<form name="message" action="">
+    <input name="usermsg" type="String" id="usermsg" size="63" />
+    <input name="submitmsg" type="submit"  id="submitmsg" value="Send" />
+</form>
+	
+    </body>
+</html>
